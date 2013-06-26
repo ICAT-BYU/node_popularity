@@ -1,0 +1,25 @@
+	$temp = variable_get('node_popularity_content_types',array());
+	$content_types = array();
+		
+		$types = array_keys(node_type_get_types());
+			foreach($types as $name){
+				if(isset($temp[$name])){
+					$content_types[$name] = $temp[$name];
+				} else{
+				$content_types[$name] = 0;
+				}
+			}
+		
+		variable_set('node_popularity_content_types',$content_types);
+		
+	/* ------------- Setting Default Checkmarks ------------- */
+	
+	$checked = array();
+	foreach($types as $name){
+		if($content_types[$name] == 1){
+			$checked[] = $name;
+		}
+	}
+	
+	kpr($checked);
+	kpr($content_types);

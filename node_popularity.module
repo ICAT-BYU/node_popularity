@@ -1,0 +1,454 @@
+<?PHP 
+/**
+* @file
+* Popularity management for BYU Module
+*/
+
+/**
+* Implements hook_help().
+*/
+function node_popularity_help( $path, $arg ) {
+    if( $path == 'admin/help#node_popularity'){
+      return '<p>' . t('In order for the popularity to start counting and storing data the content types that will be stored need to be enabled on the node popularity configuration page.') . '</p>';
+    }
+}
+
+/**
+ * Implements Drupal's hook_menu();
+ * 
+ * @return $items
+ *		An array containing menu links and functions
+ */
+function node_popularity_menu(){
+  $items = array();
+  
+  $items['admin/config/content/node_popularity'] = array(
+      'title' => 'Node Popularity',
+			'description' => 'Manage the fields used for popularity.',
+      'page callback' => 'drupal_get_form',
+			'page arguments'   => array('node_popularity_configuration'),
+      'access callback' => array('node_popularity_check_permission'),
+			'access arguments' => array('administer node popularity module'),
+      'type' => MENU_NORMAL_ITEM,			
+    );
+  return $items;
+}
+
+
+/**
+* Checks if user has permission to access module
+*
+* @param $permission - string
+*	  string representation of the permission to check
+*/
+function node_popularity_check_permission($permission) {
+	if(user_access('administer node popularity module'))
+	{
+		return true;
+	}
+	return false;
+}
+
+
+
+
+/**
+ * Implementation of hook_permission().
+ */
+function node_popularity_permission() {
+  return array(
+    'administer node popularity module' => array(
+      'title' => t('Administer Node Popularity Module'),
+      'description' => t('Perform administration tasks for the Node Popularity module.'))
+  );
+}  //  End of smtp_permission().
+
+
+/**
+ * Use this page to set decay rate and max number of records in the table
+ * 
+ * @param $form - array
+ *		the renderable array containing the form elements
+ * @param $form_state - array
+ * 	  the array containing the form state elements
+ */
+function node_popularity_configuration($form, &$form_state){
+		
+	$decay_rate = variable_get('node_popularity_decay_rate',1.5);
+	$max_fields = variable_get('node_popularity_max_db_records',15000000);
+	
+	// the variable has been set with some values
+	
+	// get the variables array with the old settings
+	// make sure they are in the form that we can insert them directly into the checkboxes
+	// look out for new content types
+	// set the checkbox in the form
+
+	
+	
+	$checked = variable_get('node_popularity_content_types',array());
+	//$checked_temp = variable_get('node_popularity_checked', array());
+	//$checked = array();
+		
+	$types = array_keys(node_type_get_types());
+	//kpr($types);
+	
+	foreach($types as $name){
+		if(!isset($temp[$name])){
+			$temp[$name] = $name;
+		}
+	}
+	//kpr($temp);
+		
+	//variable_set('node_popularity_content_types',$content_types);
+		
+	/*
+	$checked = array();
+	foreach($types as $name){
+		if($content_types[$name] == 1){
+			$checked[] = $name;
+		}
+	}*/
+	
+	
+	
+	//kpr($checked);
+	//kpr($content_types); 
+		
+	/* ------------- Building the form -------------*/  
+	
+	//$fields = field_info_fields();
+	/*
+	$possiblefields = array();
+	foreach($fields as $key => $field){
+		if($field['type'] == 'number_integer'){
+			$possiblefields[$key] = $key;
+		}
+	}		*/
+	
+	$form['wrapper2'] = array(
+		'#type' 		=> 'fieldset',
+		'#title' 		=> 'Node Popularity Decay Rate',
+	);
+	
+	$form['wrapper2']['rate'] = array(
+		'#type' 		=> 'textfield',
+		'#required' => TRUE,
+		'#default_value' => $decay_rate,
+		'#size' 		=> '4',
+		'#title' 		=> t('Enter the popularity decay rate.'),
+		'#description' => t('Note: The default it 1.5.  Higher numbers decay faster and numbers lower than one will cause growth.'),	
+	);
+	
+	$form['wrapper3'] =array(
+		'#type' 		=> 'fieldset',
+		'#title' 		=> 'Node Popularity Table Limit',	
+	);
+	
+	$form['wrapper3']['max_fields'] = array(
+		'#type' 				=> 'textfield',
+		'#required' 		=> TRUE,
+		'#default_value' => $max_fields,
+		'#size' 				=> '10',
+		'#title' 				=> t('Enter the max number of records before reporting an error.'),
+		'#description' 	=> t('This is used to help prevent database errors.  When the error is report, remove records to a more manageble level.'),	
+	);	
+	
+	
+	//kpr(drupal_map_assoc(array_keys($temp)));
+	
+	// Content Types
+	$form['wrapper4'] = array(
+		'#type' 	=> 'fieldset',
+		'#title' 	=> 'Node Popularity Content Types',
+		'#description' => '**PLEASE NOTE: Unchecking a content type will delete the popularity count data for nodes of that content type; however, revision data will not be deleted**',
+
+	);
+	
+	//kpr(drupal_map_assoc(array_keys($temp)));
+	//kpr(array_keys($checked));
+	
+	$form['wrapper4']['content_types'] = array(
+		'#type' => 'checkboxes',
+		'#options' => $temp,
+		'#default_value' => $checked,
+	);
+	/*
+	$form['wrapper4']['content types keys'] = array(
+		'#type' => 'value',
+		'#value' => $temp,
+		//'#default_value' => array_keys($checked),
+	);
+	
+	*/
+	$form['button'] = array(
+		'#type' 		=> 'submit',
+		'#value' 		=> t('Save Changes'),		
+	);
+	
+	
+	
+	
+	
+	/*
+	$form['possiblefieldsarray'] = array(
+		'#type' 		=> 'value',
+		'#value' 		=> $possiblefields,	
+	);*/
+	
+	return $form;
+}
+
+/** 
+* The validation function for the configuration page
+*
+* @param $form - array
+*		the renderable array containing the form elements
+* @param $form_state - array
+* 	the array containing the form state elements
+*/
+function node_popularity_configuration_validate($form, &$form_state){
+
+	if(!is_numeric($form_state['values']['rate'])){
+		form_set_error('rate', t('The decay rate must be a number.'));
+	}
+	
+	if(!is_numeric($form_state['values']['max_fields'])){
+		form_set_error('rate', t('The number of DB records must be a number.'));
+	}
+}
+
+/** 
+* The submit function for the configuration page
+*
+* @param $form - array
+*		the renderable array containing the form elements
+* @param $form_state - array
+* 	the array containing the form state elements
+*/
+function node_popularity_configuration_submit($form, &$form_state){
+	
+	// get the variables and save them to the database
+	// create the fields on the content types that have a 1 in the values array.
+	
+	
+	node_popularity_configure_fields($form_state['values']['content_types'], true);
+	variable_set('node_popularity_content_types',$form_state['values']['content_types']);
+	variable_set('node_popularity_decay_rate',$form_state['values']['rate']);
+	variable_set('node_popularity_max_db_records',$form_state['values']['max_fields']);
+	
+	drupal_set_message('Settings saved successfully');
+	
+}
+/**
+*	On submit the fields that have been selected will be set
+*
+*
+*
+*/
+function node_popularity_configure_fields($array){
+	
+	foreach($array as $key => $value){
+	
+		if($value!=NULL  && is_string($value)) {
+			$field = node_popularity_instance($value);
+
+			if(!field_info_instance('node',$field['field_name'],$value)){
+				field_create_instance($field);
+				drupal_set_message('Node Popularity Count Field has been added to ' . $value);
+			} 
+		} else {
+				$field = node_popularity_instance($key);
+				if(field_info_instance('node',$field['field_name'],$key)){
+					field_delete_instance($field, $field_cleanup = false);
+					drupal_set_message('Node Popularity Count Field has been removed from ' . $key);
+				}
+			}
+	}
+	
+}
+
+function node_popularity_instance($type){
+		$instance = array(
+		'field_name' => 'field_node_popularity',
+		'entity_type' => 'node',
+		'label' => 'Node Popularity Count Field',
+		'bundle' => $type,
+		// If you don't set the "required" property then the field wont be required by default.
+		'required' => FALSE,
+		'settings' => array(),
+		'widget' => array(
+			'type' => 'textfield',
+			//'settings' => array('size' => 160),
+		),
+		'display' => array(
+			'default' => array(
+				'label' => 'hidden',
+				'type' 	=> 'hidden',
+			),
+		),		
+		//'' => '',
+	);
+	return $instance;
+}
+
+/**
+* Uses Ultimate Cron to run the update function once per day.
+*/
+function node_popularity_daily() {
+
+  node_popularity_update_popularity();
+	
+	$number = node_popularity_count_records();
+	$max = variable_get('node_popularity_max_db_records',15000000);
+	
+	if($max < $number){
+		drupal_set_message('The node popularity revision table is full!','error');
+	}	
+}
+
+/**
+* A function to count the number of records in the node_popularity_revision DB table
+*
+* @return int
+*		The number of records in the node_popularity table
+*/
+function node_popularity_count_records(){
+	return db_query('Select count(*) from node_popularity_revision')->fetchField();
+}
+
+/**
+*	A function to run as a batch job
+* Passes through all nodes with the given field to reduce popularity values every night
+* Saves daily popularity values to the revision table
+*/
+function node_popularity_update_popularity($testing = false){
+
+		$decayrate = variable_get('node_popularity_decay_rate',1.5);
+
+		$nids = node_popularity_DAO::read();
+		foreach($nids as $id){			
+			$var = intval($id->nid);
+			$node = node_load($var);
+			$language = $node->language;
+			
+				if(isset($node->field_node_popularity[$language][0]['value'])){
+
+					$popularity = $node->field_node_popularity[$language][0]['value'];
+					$revision = array(
+						'nid'=>$node->nid,
+						'revision_date'=>time(),
+						'popularity_value'=>$popularity,
+					);	
+					node_popularity_DAO::saverevision($revision);					
+					$node->field_node_popularity[$language][0]['value'] = ceil($popularity/$decayrate);
+				}else{
+
+					$revision = array(
+						'nid'=>$node->nid,
+						'revision_date'=>time(),
+						'popularity_value'=>0,
+					);
+					node_popularity_DAO::saverevision($revision);
+				}
+				
+			node_save($node);
+		}
+	}
+
+/**
+ * 
+ * Implements hook_preprocess_node()
+ *
+ * Adds hook_increase_count() call to the node page
+ * 
+ */
+function node_popularity_preprocess_node(&$variables){
+	node_popularity_increase_count($variables);	
+
+}
+
+/**
+ * Increments the popularity of an item when viewed and saves the field
+ *
+ * @param $variables - array
+ *		The array from the preprocess function containing the variables for the node
+ */
+function node_popularity_increase_count(&$variables){	
+	if(isset($variables['page']) && $variables['page'] == TRUE){
+		
+		$pageviews = 1;
+		$newnode = node_load($variables['nid']);
+		$language = $newnode->language;
+		if(!empty($newnode->field_node_popularity[$language][0]['value'])){
+			$pageviews = intval($newnode->field_node_popularity[$language][0]['value']) + 1; 					
+		}
+
+		$newnode->field_node_popularity[$language][0]['value'] = $pageviews;	
+		node_save($newnode);
+
+	}
+}
+
+/**
+ *	Data Access Object for node_popularity and node_popularity_revision tables
+ *
+ */
+class node_popularity_DAO{
+
+/**
+ *	Reads the node_popularity table
+ *	@param $nid - int
+ *	@return $query - database row with given nid
+ */
+	public static function read(){
+		$query = db_select('node','n')
+			->fields('n',array('nid'))
+			->execute()
+			->fetchAll();
+			return $query;
+	}
+	
+/**
+ * Reads all rows of node_popularity table
+ *
+ * @return $query - all rows of node_popularity table
+ */
+	public static function readall(){
+		$query = db_select('node_popularity','n')
+			->fields('n')
+			->execute()
+			->fetchAll();
+			return $query;
+			
+	}
+	
+/**
+ * Inserts a new row or Updates given row popularity value\
+ *
+ * @params $record - array
+ * 		Array -
+ *
+ * @return writes a new record to the node_popularity table or updates based on nid
+ */
+	public static function save($record){
+			
+		if(!isset($record['In_DB'])){						
+			return drupal_write_record('node_popularity',$record, array('nid'));		
+		}else{
+			unset($record['In_DB']);
+			return drupal_write_record('node_popularity',$record);		
+		}
+		
+	}
+	
+/**
+ *	Saves a new row to node_popularity_revision
+ *
+ */	
+	public static function saverevision($record){
+			//drupal_set_message('<pre>' . print_r($record) . '</pre>');
+			return drupal_write_record('node_popularity_revision',$record);
+	}
+	
+}

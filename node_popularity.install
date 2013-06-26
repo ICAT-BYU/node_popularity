@@ -1,0 +1,149 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the node_popularity module.
+ */ 
+ 
+/**
+ * Implements hook_install().
+ *
+ * @see hook_install()
+ */
+function node_popularity_install() {	
+	// create the default settings
+	variable_set('node_popularity_decay_rate',1.5);
+	variable_set('node_popularity_max_db_records',15000000);
+}
+
+/**
+* This function enables the module and installs the database schema
+* Enables node_popularity field
+*/
+
+function node_popularity_enable(){  
+// Check if the field is already created
+	 if (!field_info_field('field_node_popularity')) {
+     $field = array(
+			'field_name' => 'field_node_popularity', 
+			'type' => 'number_integer',
+			'locked' => TRUE,
+		);
+		field_create_field($field);    
+  }
+
+}
+
+function node_popularity_types($type){
+		$instance = array(
+		'field_name' => 'field_node_popularity',
+		'entity_type' => 'node',
+		'label' => 'Node Popularity Count Field',
+		'bundle' => $type,
+		// If you don't set the "required" property then the field wont be required by default.
+		'required' => FALSE,
+		'settings' => array(),
+			'widget' => array(
+				'type' => 'textfield',
+				//'settings' => array('size' => 160),
+		),
+		'display' => array(
+			'default' => array(
+				'label' => 'hidden',
+				'type' => 'hidden',
+			),
+		),		
+		//'' => '',
+	);
+	return $instance;
+}
+
+ function node_popularity_schema() { 
+	$schema = array();
+	
+	// Stores a list of emails sent.
+	$schema['node_popularity_revision'] = array(
+		
+    'description' => 'Stores revision data for node popularity.',
+    'fields' => array(
+			'id' => array(
+				'description' => 'Primary identifier for database entry',
+				'type' => 'serial',
+				'not null' => TRUE,
+				),
+			'nid'  => array(     			
+				'description' => 'Identifier for a node.',
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => TRUE,
+			),
+			'revision_date' => array(				
+				'description' => 'The Unix timestamp when the node was revised.',     
+				'type' => 'int',				
+				'not null' => TRUE,
+				'default' => 0,
+			),
+			'popularity_value'  => array(        
+				'description' => 'The popularity weight for the node.',
+				'type' => 'int',
+				'not null' => TRUE,
+				'default' => 0,
+			),	
+			
+		),
+	
+	'primary key' => array(
+		'id'
+	),
+	);
+	
+  return $schema;
+}
+
+
+
+/**
+ * Implements hook_uninstall().
+ *
+ * As in hook_install, there is no need to uninstall schema, Drupal will do it
+ * for us.
+ * 
+ * @see hook_uninstall()
+ */
+function node_popularity_uninstall() {
+	// delete the default settings
+	variable_del('node_popularity_decay_rate');
+	variable_del('node_popularity_max_db_records');
+	variable_del('node_popularity_content_types');
+	
+	$content_types = array_keys(node_type_get_types());
+
+	foreach($content_types as $type){
+		$field = node_popularity_types($type);
+				
+			if(field_info_instance('node',$field['field_name'],$type)){
+				field_delete_instance($field, $field_cleanup = TRUE);
+			}
+	}
+}
+
+
+/**
+* Implements hood_disable()
+*
+* Disables node_popularity field
+* Does not delete database tables
+*
+*/
+function node_popularity_disable(){
+	$content_types = array_keys(node_type_get_types());
+
+	foreach($content_types as $type){
+		$field = node_popularity_types($type);
+				
+			if(field_info_instance('node',$field['field_name'],$type)){
+				field_delete_instance($field, $field_cleanup = TRUE);
+			}
+	}
+}
+
+
