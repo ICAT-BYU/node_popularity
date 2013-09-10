@@ -1,6 +1,6 @@
 name = Node Popularity
 description = A module to manage node popularity. 
-package = BYU Suite
+package = ONESTOP Suite
 core = 7.x
 
 configure = admin/config/content/node_popularity
